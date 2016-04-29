@@ -1,0 +1,272 @@
+﻿<ManagementPack ContentReadable="true" SchemaVersion="2.0" OriginalSchemaVersion="1.1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <Manifest>
+    <Identity>
+      <ID>Custom.SR.CurrentActivity</ID>
+      <Version>1.0.0.1</Version>
+    </Identity>
+    <Name>Custom.SR.CurrentActivity</Name>
+    <References>
+      <Reference Alias="System">
+        <ID>System.Library</ID>
+        <Version>7.5.8501.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="Console">
+        <ID>Microsoft.EnterpriseManagement.ServiceManager.UI.Console</ID>
+        <Version>7.5.3079.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="Alias_f0453aed_7559_4825_bfd5_ffcdc3d5a84f">
+        <ID>System.WorkItem.ServiceRequest.Library</ID>
+        <Version>7.5.3079.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="CustomSystem_WorkItem_Activity_Library">
+        <ID>System.WorkItem.Activity.Library</ID>
+        <Version>7.5.3079.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="EnterpriseManagement">
+        <ID>Microsoft.EnterpriseManagement.ServiceManager.UI.Administration</ID>
+        <Version>7.5.3079.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="SystemCenter">
+        <ID>Microsoft.SystemCenter.Library</ID>
+        <Version>7.0.8433.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="SystemCenter1">
+        <ID>Microsoft.SystemCenter.Subscriptions</ID>
+        <Version>7.5.3079.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="Core">
+        <ID>ServiceManager.Core.Library</ID>
+        <Version>7.5.3079.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="Windows">
+        <ID>Microsoft.Windows.Library</ID>
+        <Version>7.5.8501.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="System_WorkItem_Library">
+        <ID>System.WorkItem.Library</ID>
+        <Version>7.5.3079.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+    </References>
+  </Manifest>
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="ClassExtension_35a3c9de_4542_4b40_bae8_da11b7dc2b69" Accessibility="Public" Abstract="false" Base="Alias_f0453aed_7559_4825_bfd5_ffcdc3d5a84f!System.WorkItem.ServiceRequest" Hosted="false" Singleton="false" Extension="true">
+          <Property ID="CurrentActivity" Type="string" AutoIncrement="false" Key="false" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+        </ClassType>
+      </ClassTypes>
+    </EntityTypes>
+    <ModuleTypes>
+      <WriteActionModuleType ID="Custom_SR_UpdateCurrentActivityProperty.WindowsPowerShellScript.0d44c9b5_ed04_46c2_9dbc_a646c937942c.MT" Accessibility="Public" RunAs="Core!Microsoft.SystemCenter.ServiceManager.WorkflowAccount" Batching="false">
+        <Configuration>
+          <IncludeSchemaTypes>
+            <SchemaType>Windows!Microsoft.Windows.PowerShellSchema</SchemaType>
+          </IncludeSchemaTypes>
+          <xsd:element name="ActivityId" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <OverrideableParameters>
+          <OverrideableParameter ID="ActivityId" Selector="$Config/ActivityId$" ParameterType="string" />
+        </OverrideableParameters>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <WriteAction ID="Custom_SR_UpdateCurrentActivityProperty.WindowsPowerShellScript.0d44c9b5_ed04_46c2_9dbc_a646c937942c.PSWA" TypeID="Windows!Microsoft.Windows.PowerShellWriteAction">
+                <ScriptName>DoWork.ps1</ScriptName>
+                <ScriptBody>param ( [string]$ActivityId )
+param($ActivityId)
+$ErrorActionPreference = 'SilentlyContinue'
+[threading.thread]::CurrentThread.CurrentCulture = 'en-US'
+function log($strMessage){
+    if($global:strLog -eq $null){
+        $global:strLog = "$strMessage `r`n"
+    } else {
+        $global:strlog += "$strMessage`r`n"
+    }
+}
+try{
+#$ActivityId = 'MA6559'
+Log "An activity has been set to 'in progress', updating the parent SR's Current Activity field"
+Get-Module|Remove-Module -force
+import-module "C:\Program Files\Common Files\SMLets\SMLets.psd1" -global -force -ea SilentlyContinue
+#(get-module| ConvertTo-XML).Save("d:\sources\modules.xml")
+Log "Getting SR for Activity $ActivityId"
+$objClass = Get-SCSMClass -Name 'System.WorkItem.Activity$'
+$objRelation = Get-SCSMRelationshipClass -Name 'System.WorkItemContainsActivity$'
+$objActivity = Get-SCSMObject -Class $objClass -Filter "Name -eq $ActivityId"
+$objItem = $(Get-SCSMRelationshipObject -ByTarget $objActivity|?{$_.RelationshipId -eq $($objRelation.Id)}).SourceObject
+if($objItem -ne $null){
+    while($objItem.Name -notlike "SR*"){
+        $objItem = Get-SCSMRelationshipObject -ByTarget $objItem
+    }
+    $arrPropertyHash = @{"CurrentActivity" = "$($objActivity.Title)"}
+    $objItem|Set-SCSMObject -PropertyHashtable $arrPropertyHash
+    Log "Current Activity set to `'$($objActivity.Title)`' for Request $($objItem.Name)"
+    
+}
+else {
+    Log "Activity not found"
+}
+} catch {
+    log "ERROR: $_"
+}
+finally{
+    New-EventLog -LogName "Operations Manager" -Source "Custom" -ErrorAction SilentlyContinue
+    Write-EventLog -LogName "Operations Manager" -Source "Custom" -EntryType Information -EventId 0 -Message $global:strLog
+    $global:strLog = ""
+    Remove-Module smlets -force
+}
+</ScriptBody>
+                <SnapIns></SnapIns>
+                <Parameters>
+                  <Parameter>
+                    <Name>ActivityId</Name>
+                    <Value>$Config/ActivityId$</Value>
+                  </Parameter>
+                </Parameters>
+                <TimeoutSeconds>300</TimeoutSeconds>
+                <StrictErrorHandling>true</StrictErrorHandling>
+                <SerializationDepth>3</SerializationDepth>
+              </WriteAction>
+            </MemberModules>
+            <Composition>
+              <Node ID="Custom_SR_UpdateCurrentActivityProperty.WindowsPowerShellScript.0d44c9b5_ed04_46c2_9dbc_a646c937942c.PSWA" />
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <InputType>System!System.BaseData</InputType>
+      </WriteActionModuleType>
+      <WriteActionModuleType ID="Custom_SR_UpdateCurrentActivityProperty_Copy.WindowsPowerShellScript.edf209ef_c59e_48d5_9d81_fc19182d0fa5.MT" Accessibility="Public" RunAs="Core!Microsoft.SystemCenter.ServiceManager.WorkflowAccount" Batching="false">
+        <Configuration>
+          <IncludeSchemaTypes>
+            <SchemaType>Windows!Microsoft.Windows.PowerShellSchema</SchemaType>
+          </IncludeSchemaTypes>
+          <xsd:element name="ActivityId" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <OverrideableParameters>
+          <OverrideableParameter ID="ActivityId" Selector="$Config/ActivityId$" ParameterType="string" />
+        </OverrideableParameters>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <WriteAction ID="Custom_SR_UpdateCurrentActivityProperty_Copy.WindowsPowerShellScript.edf209ef_c59e_48d5_9d81_fc19182d0fa5.PSWA" TypeID="Windows!Microsoft.Windows.PowerShellWriteAction">
+                <ScriptName>DoWork.ps1</ScriptName>
+                <ScriptBody>param ( [string]$ActivityId )
+param($ActivityId)
+$ErrorActionPreference = 'SilentlyContinue'
+[threading.thread]::CurrentThread.CurrentCulture = 'en-US'
+function log($strMessage){
+    if($global:strLog -eq $null){
+        $global:strLog = "$strMessage `r`n"
+    } else {
+        $global:strlog += "$strMessage`r`n"
+    }
+}
+try{
+#$ActivityId = 'MA6559'
+Log "An activity has been set to 'in progress', updating the parent SR's Current Activity field"
+Get-Module|Remove-Module -force
+import-module "C:\Program Files\Common Files\SMLets\SMLets.psd1" -global -force -ea SilentlyContinue
+#(get-module| ConvertTo-XML).Save("d:\sources\modules.xml")
+Log "Getting SR for Activity $ActivityId"
+$objClass = Get-SCSMClass -Name 'System.WorkItem.Activity$'
+$objRelation = Get-SCSMRelationshipClass -Name 'System.WorkItemContainsActivity$'
+$objActivity = Get-SCSMObject -Class $objClass -Filter "Name -eq $ActivityId"
+$objItem = $(Get-SCSMRelationshipObject -ByTarget $objActivity|?{$_.RelationshipId -eq $($objRelation.Id)}).SourceObject
+if($objItem -ne $null){
+    while($objItem.Name -notlike "SR*"){
+        $objItem = Get-SCSMRelationshipObject -ByTarget $objItem
+    }
+    $arrPropertyHash = @{"CurrentActivity" = "$($objActivity.Title)"}
+    $objItem|Set-SCSMObject -PropertyHashtable $arrPropertyHash
+    Log "Current Activity set to `'$($objActivity.Title)`' for Request $($objItem.Name)"
+    
+}
+else {
+    Log "Activity not found"
+}
+} catch {
+    log "ERROR: $_"
+}
+finally{
+    New-EventLog -LogName "Operations Manager" -Source "Custom" -ErrorAction SilentlyContinue
+    Write-EventLog -LogName "Operations Manager" -Source "Custom" -EntryType Information -EventId 0 -Message $global:strLog
+    $global:strLog = ""
+    Remove-Module smlets -force
+}
+</ScriptBody>
+                <SnapIns></SnapIns>
+                <Parameters>
+                  <Parameter>
+                    <Name>ActivityId</Name>
+                    <Value>$Config/ActivityId$</Value>
+                  </Parameter>
+                </Parameters>
+                <TimeoutSeconds>300</TimeoutSeconds>
+                <StrictErrorHandling>true</StrictErrorHandling>
+                <SerializationDepth>3</SerializationDepth>
+              </WriteAction>
+            </MemberModules>
+            <Composition>
+              <Node ID="Custom_SR_UpdateCurrentActivityProperty_Copy.WindowsPowerShellScript.edf209ef_c59e_48d5_9d81_fc19182d0fa5.PSWA" />
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <InputType>System!System.BaseData</InputType>
+      </WriteActionModuleType>
+    </ModuleTypes>
+  </TypeDefinitions>
+  <Categories>
+    <Category ID="Custom.SR.CurrentActivity.Category" Value="Console!Microsoft.EnterpriseManagement.ServiceManager.ManagementPack">
+      <ManagementPackName>Custom.SR.CurrentActivity</ManagementPackName>
+      <ManagementPackVersion>1.0.0.0</ManagementPackVersion>
+    </Category>
+  </Categories>
+  <Monitoring>
+    <Tasks>
+      <Task ID="Custom_SR_UpdateCurrentActivityProperty.WindowsPowerShellScript.0d44c9b5_ed04_46c2_9dbc_a646c937942c" Accessibility="Public" Enabled="true" Target="Windows!Microsoft.Windows.Computer" Timeout="300" Remotable="true">
+        <Category>Notification</Category>
+        <WriteAction ID="Custom_SR_UpdateCurrentActivityProperty.WindowsPowerShellScript.0d44c9b5_ed04_46c2_9dbc_a646c937942c.WA" TypeID="Custom_SR_UpdateCurrentActivityProperty.WindowsPowerShellScript.0d44c9b5_ed04_46c2_9dbc_a646c937942c.MT">
+          <ActivityId></ActivityId>
+        </WriteAction>
+      </Task>
+      <Task ID="Custom_SR_UpdateCurrentActivityProperty_Copy.WindowsPowerShellScript.edf209ef_c59e_48d5_9d81_fc19182d0fa5" Accessibility="Public" Enabled="true" Target="Windows!Microsoft.Windows.Computer" Timeout="300" Remotable="true">
+        <Category>Notification</Category>
+        <WriteAction ID="Custom_SR_UpdateCurrentActivityProperty_Copy.WindowsPowerShellScript.edf209ef_c59e_48d5_9d81_fc19182d0fa5.WA" TypeID="Custom_SR_UpdateCurrentActivityProperty_Copy.WindowsPowerShellScript.edf209ef_c59e_48d5_9d81_fc19182d0fa5.MT">
+          <ActivityId></ActivityId>
+        </WriteAction>
+      </Task>
+    </Tasks>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="Custom.SR.CurrentActivity">
+          <Name>Custom.SR.CurrentActivity</Name>
+        </DisplayString>
+        <DisplayString ElementID="ClassExtension_35a3c9de_4542_4b40_bae8_da11b7dc2b69">
+          <Name>Service Request (Current Activity)</Name>
+          <Description>Extension to add the name of the current activity to a custom property of the Service Request</Description>
+        </DisplayString>
+        <DisplayString ElementID="ClassExtension_35a3c9de_4542_4b40_bae8_da11b7dc2b69" SubElementID="CurrentActivity">
+          <Name>Current Activity</Name>
+        </DisplayString>
+        <DisplayString ElementID="Custom_SR_UpdateCurrentActivityProperty.WindowsPowerShellScript.0d44c9b5_ed04_46c2_9dbc_a646c937942c">
+          <Name>Custom_SR_UpdateCurrentActivityProperty.WindowsPowerShellScript.0d44c9b5_ed04_46c2_9dbc_a646c937942c</Name>
+        </DisplayString>
+        <DisplayString ElementID="Custom_SR_UpdateCurrentActivityProperty_Copy.WindowsPowerShellScript.edf209ef_c59e_48d5_9d81_fc19182d0fa5">
+          <Name>Custom_SR_UpdateCurrentActivityProperty_Copy.WindowsPowerShellScript.edf209ef_c59e_48d5_9d81_fc19182d0fa5</Name>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPack>

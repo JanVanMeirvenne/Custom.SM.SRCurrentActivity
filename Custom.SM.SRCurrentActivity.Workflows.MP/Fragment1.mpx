@@ -1,0 +1,87 @@
+﻿<ManagementPackFragment SchemaVersion="SM2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Categories>
+    <Category ID="Custom.SM.SRCurrentActivity.Workflows.MP.CAT_MP" Value="Console!Microsoft.EnterpriseManagement.ServiceManager.ManagementPack">
+      <ManagementPackName>Custom.SM.SRCurrentActivity.Workflows.MP</ManagementPackName>
+      <ManagementPackVersion>1.0.0.0</ManagementPackVersion>
+    </Category>
+    <Category ID="Custom.SM.SRCurrentActivity.Workflows.MP.CAT_UpdateCurrentActivity" Target="Custom.SM.SRCurrentActivity.Workflows.MP.WF_UpdateCurrentActivity" Value="EnterpriseManagement1!Microsoft.EnterpriseManagement.ServiceManager.Rules.WorkflowSubscriptions" />
+  </Categories>
+  <Monitoring>
+    <Rules>
+      <Rule ID="Custom.SM.SRCurrentActivity.Workflows.MP.WF_UpdateCurrentActivity" Enabled="true" Target="SystemCenter!Microsoft.SystemCenter.SubscriptionWorkflowTarget" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Notification</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="SystemCenter1!Microsoft.SystemCenter.CmdbInstanceSubscription.DataSourceModule">
+            <Subscription>
+              <InstanceSubscription Type="$MPElement[Name='CustomSystem_WorkItem_Activity_Library!System.WorkItem.Activity']$">
+                <UpdateInstance>
+                  <Criteria>
+                    <Expression>
+                      <And>
+                        <Expression>
+                          <SimpleExpression>
+                            <ValueExpression>
+                              <Property State="Pre">$Context/Property[Type='CustomSystem_WorkItem_Activity_Library!System.WorkItem.Activity']/Status$</Property>
+                            </ValueExpression>
+                            <Operator>NotEqual</Operator>
+                            <ValueExpression>
+                              <Value>{11fc3cef-15e5-bca4-dee0-9c1155ec8d83}</Value>
+                            </ValueExpression>
+                          </SimpleExpression>
+                        </Expression>
+                        <Expression>
+                          <SimpleExpression>
+                            <ValueExpression>
+                              <Property State="Post">$Context/Property[Type='CustomSystem_WorkItem_Activity_Library!System.WorkItem.Activity']/Status$</Property>
+                            </ValueExpression>
+                            <Operator>Equal</Operator>
+                            <ValueExpression>
+                              <Value>{11fc3cef-15e5-bca4-dee0-9c1155ec8d83}</Value>
+                            </ValueExpression>
+                          </SimpleExpression>
+                        </Expression>
+                      </And>
+                    </Expression>
+                  </Criteria>
+                </UpdateInstance>
+              </InstanceSubscription>
+              <PollingIntervalInSeconds>60</PollingIntervalInSeconds>
+              <BatchSize>100</BatchSize>
+            </Subscription>
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="WA" TypeID="SystemCenter1!Microsoft.EnterpriseManagement.SystemCenter.Subscription.WindowsWorkflowTaskWriteAction">
+            <Subscription>
+              <WindowsWorkflowConfiguration>
+                <AssemblyName>Custom.SM.SRCurrentActivity.Workflows</AssemblyName>
+                <WorkflowTypeName>Custom.SM.SRCurrentActivity.Workflows.PackageInitial</WorkflowTypeName>
+                <WorkflowParameters>
+                  <WorkflowParameter Name="ActivityId" Type="string">$Data/BaseManagedEntityId$</WorkflowParameter>
+                </WorkflowParameters>
+                <RetryExceptions></RetryExceptions>
+                <RetryDelaySeconds>60</RetryDelaySeconds>
+                <MaximumRunningTimeSeconds>300</MaximumRunningTimeSeconds>
+              </WindowsWorkflowConfiguration>
+            </Subscription>
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+    </Rules>
+   
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="Custom.SM.SRCurrentActivity.Workflows.MP">
+          <Name>Custom.SM.SRCurrentActivity.Workflows.MP</Name>
+        </DisplayString>
+       
+        <DisplayString ElementID="Custom.SM.SRCurrentActivity.Workflows.MP.WF_UpdateCurrentActivity">
+          <Name>Custom.SM.SRCurrentActivity.Workflows.MP.WF_UpdateCurrentActivity</Name>
+          <Description></Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
